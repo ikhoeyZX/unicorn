@@ -32,7 +32,7 @@ SRC_DIR = os.path.join(ROOT_DIR, 'src')
 UC_DIR = SRC_DIR if os.path.exists(SRC_DIR) else os.path.join(ROOT_DIR, '../..')
 BUILD_DIR = os.path.join(UC_DIR, 'build_python')
 
-VERSION = "2.0.2"
+VERSION = "2.1.1"
 
 if SYSTEM == 'darwin':
     LIBRARY_FILE = "libunicorn.2.dylib"
@@ -254,6 +254,6 @@ setup(
     include_package_data=True,
     is_pure=False,
     package_data={
-        'unicorn': ['lib/*', 'include/unicorn/*']
+        'unicorn': ['unicorn/py.typed', 'lib/*', 'include/unicorn/*']
     }
 )
