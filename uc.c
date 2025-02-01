@@ -36,7 +36,7 @@ static uc_err uc_snapshot(uc_engine *uc);
 static uc_err uc_restore_latest_snapshot(uc_engine *uc);
 
 #if defined(__APPLE__) && defined(HAVE_PTHREAD_JIT_PROTECT) &&                 \
-    defined(HAVE_SPRR) && (defined(__arm__) || defined(__aarch64__))
+    (defined(__arm__) || defined(__aarch64__))
 static void save_jit_state(uc_engine *uc)
 {
     if (!uc->nested) {
@@ -51,7 +51,7 @@ static void restore_jit_state(uc_engine *uc)
 {
     assert(uc->nested > 0);
     if (uc->nested == 1) {
-        assert(uc->current_executable == thread_executable());
+        assert_executable(uc->current_executable);
         if (uc->current_executable != uc->thread_executable_entry) {
             if (uc->thread_executable_entry) {
                 jit_write_protect(true);
@@ -2149,7 +2149,8 @@ uc_err uc_context_save(uc_engine *uc, uc_context *context)
         if (!context->fv) {
             return UC_ERR_NOMEM;
         }
-        if (!uc->flatview_copy(uc, context->fv, uc->address_space_memory.current_map, false)) {
+        if (!uc->flatview_copy(uc, context->fv,
+                               uc->address_space_memory.current_map, false)) {
             restore_jit_state(uc);
             return UC_ERR_NOMEM;
         }
@@ -2435,7 +2436,8 @@ uc_err uc_context_restore(uc_engine *uc, uc_context *context)
         uc_snapshot(uc);
         uc->ram_list.freed = context->ramblock_freed;
         uc->ram_list.last_block = context->last_block;
-        if (!uc->flatview_copy(uc, uc->address_space_memory.current_map, context->fv, true)) {
+        if (!uc->flatview_copy(uc, uc->address_space_memory.current_map,
+                               context->fv, true)) {
             return UC_ERR_NOMEM;
         }
         uc->tcg_flush_tlb(uc);
@@ -2541,7 +2543,7 @@ uc_err uc_ctl(uc_engine *uc, uc_control_type control, ...)
                 break;
             }
 
-            if (uc->arch != UC_ARCH_ARM) {
+            if (uc->arch != UC_ARCH_ARM && uc->arch != UC_ARCH_ARM64) {
                 err = UC_ERR_ARG;
                 break;
             }
