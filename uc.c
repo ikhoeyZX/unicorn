@@ -1020,8 +1020,11 @@ uc_err uc_emu_start(uc_engine *uc, uint64_t begin, uint64_t until,
 #endif
 #ifdef UNICORN_HAS_MIPS
     case UC_ARCH_MIPS:
-        // TODO: MIPS32/MIPS64/BIGENDIAN etc
-        uc_reg_write(uc, UC_MIPS_REG_PC, &begin_pc32);
+        if (uc->mode & UC_MODE_MIPS64) {
+            uc_reg_write(uc, UC_MIPS_REG_PC, &begin);
+        } else {
+            uc_reg_write(uc, UC_MIPS_REG_PC, &begin_pc32);
+        }
         break;
 #endif
 #ifdef UNICORN_HAS_SPARC
@@ -1978,8 +1981,12 @@ void helper_uc_tracecode(int32_t size, uc_hook_idx index, void *handle,
         index &
         UC_HOOK_FLAG_MASK; // The index here may contain additional flags. See
                            // the comments of uc_hook_idx for details.
-
+    // bool not_allow_stop = (size & UC_HOOK_FLAG_NO_STOP) || (hook_flags & UC_HOOK_FLAG_NO_STOP);
+    bool not_allow_stop = hook_flags & UC_HOOK_FLAG_NO_STOP;
+    
     index = index & UC_HOOK_IDX_MASK;
+    // // Like hook index, only low 6 bits of size is used for representing sizes.
+    // size = size & UC_HOOK_IDX_MASK;
 
     // This has been done in tcg code.
     // sync PC in CPUArchState with address
@@ -1988,8 +1995,10 @@ void helper_uc_tracecode(int32_t size, uc_hook_idx index, void *handle,
     // }
 
     // the last callback may already asked to stop emulation
-    if (uc->stop_request && !(hook_flags & UC_HOOK_FLAG_NO_STOP)) {
+    if (uc->stop_request && !not_allow_stop) {
         return;
+    } else if (not_allow_stop && uc->stop_request) {
+        revert_uc_emu_stop(uc);
     }
 
     for (cur = uc->hook[index].head;
@@ -2021,7 +2030,9 @@ void helper_uc_tracecode(int32_t size, uc_hook_idx index, void *handle,
         //   normally. No check_exit_request is generated and the hooks are
         //   triggered normally. In other words, the whole IT block is treated
         //   as a single instruction.
-        if (uc->stop_request && !(hook_flags & UC_HOOK_FLAG_NO_STOP)) {
+        if (not_allow_stop && uc->stop_request) {
+            revert_uc_emu_stop(uc);
+        } else if (!not_allow_stop && uc->stop_request) {
             break;
         }
     }
@@ -2428,6 +2439,10 @@ uc_err uc_context_restore(uc_engine *uc, uc_context *context)
 
     if (uc->context_content & UC_CTL_CONTEXT_MEMORY) {
         uc->snapshot_level = context->snapshot_level;
+        if (!uc->flatview_copy(uc, uc->address_space_memory.current_map,
+                               context->fv, true)) {
+            return UC_ERR_NOMEM;
+        }
         ret = uc_restore_latest_snapshot(uc);
         if (ret != UC_ERR_OK) {
             restore_jit_state(uc);
@@ -2436,10 +2451,6 @@ uc_err uc_context_restore(uc_engine *uc, uc_context *context)
         uc_snapshot(uc);
         uc->ram_list.freed = context->ramblock_freed;
         uc->ram_list.last_block = context->last_block;
-        if (!uc->flatview_copy(uc, uc->address_space_memory.current_map,
-                               context->fv, true)) {
-            return UC_ERR_NOMEM;
-        }
         uc->tcg_flush_tlb(uc);
     }
 

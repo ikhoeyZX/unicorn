@@ -71,7 +71,7 @@ set(CMAKE_C_STANDARD 11)
 
 set(UNICORN_VERSION_MAJOR 2)
 set(UNICORN_VERSION_MINOR 1)
-set(UNICORN_VERSION_PATCH 1)
+set(UNICORN_VERSION_PATCH 3)
 
 include(cmake/bundle_static.cmake)
 
@@ -1510,7 +1510,7 @@ if(UNICORN_BUILD_TESTS)
 endif()
 
 
-if(UNICORN_INSTALL AND NOT MSVC)
+if(UNICORN_INSTALL)
     include("GNUInstallDirs")
     file(GLOB UNICORN_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/unicorn/*.h)
     if (BUILD_SHARED_LIBS)
